@@ -46,44 +46,21 @@ static int JLI_Snprintf(char* buffer, size_t size, const char* format, ...);
 /* Load the crypto library (return NULL on error) */
 void * load_crypto_library(jboolean traceEnabled) {
     void * result = NULL;
-    const char *libname;
+    const char *libname = "libcrypto-1_1-x64.dll";
     const char *oldname = "libeay32.dll";
-    char opensslpath[MAX_PATH];
 
-#if defined (_WIN64)
-    libname = "libcrypto-1_1-x64.dll";
-#else
-    libname = "libcrypto-1_1.dll";
-#endif
-
-    if (GetJREPath(opensslpath, MAX_PATH)) {
-        char libpathname[MAX_PATH];
-        int rc;
-        struct stat s;
-        
-        rc = JLI_Snprintf(libpathname, sizeof(libpathname), "%s\\bin\\%s", opensslpath, libname);
-        if ((rc > 0) && (rc <= MAX_PATH) && (stat(libpathname, &s) == 0)) {
-            result = LoadLibrary(libpathname);
-        }
-        if (result == NULL) {
-            rc = JLI_Snprintf(libpathname, sizeof(libpathname), "%s\\bin\\%s", opensslpath, oldname);
-            if ((rc > 0) && (rc <= MAX_PATH) && (stat(libpathname, &s) == 0)) {
-                result = LoadLibrary(libpathname);
-            }
-        }
-    } else {
-        result = LoadLibrary(libname);
-
-        if (result == NULL) {
-            result = LoadLibrary(oldname);
-        }
+    result = LoadLibrary(libname);
+    
+    if (result == NULL) {
+        result = LoadLibrary(oldname);
     }
+
     return result;
 }
 
 /* Unload the crypto library */
 void unload_crypto_library(void *handle) {
-	FreeLibrary(handle);
+    FreeLibrary(handle);
 }
 
 /* Find the symbol in the crypto library (return NULL if not found) */
@@ -93,6 +70,14 @@ void * find_crypto_symbol(void *handle, const char *symname) {
     symptr =  GetProcAddress(handle, symname);
 
     return symptr;
+}
+
+
+/* Find the path that the library was loaded from */
+void get_library_path(void * handle, char * library_path) {
+    if (0 == GetModuleFileName(handle, library_path, 4096)) {
+        strcpy(library_path, "Unknown path");
+    }
 }
 
 /*

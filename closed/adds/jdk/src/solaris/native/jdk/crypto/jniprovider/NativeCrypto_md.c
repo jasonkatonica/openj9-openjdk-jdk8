@@ -22,6 +22,7 @@
  * ===========================================================================
  */
 
+#include <link.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,17 +30,12 @@
 #include <dlfcn.h>
 #include "NativeCrypto_md.h"
 
-#if defined(__linux__)
-#include <link.h>
-#endif /* defined(__linux__) */
-
 /* Load the crypto library (return NULL on error) */
 void * load_crypto_library(jboolean traceEnabled)
 {
     void * result = NULL;
-    int flags = RTLD_NOW;
     size_t i = 0;
-
+    
     // Library names for OpenSSL 3.x, 1.1.1, 1.1.0, 1.0.2 and symbolic links
     static const char * const libNames[] = {
 #if defined(_AIX)
@@ -52,36 +48,28 @@ void * load_crypto_library(jboolean traceEnabled)
     "libcrypto.1.0.0.dylib",
     "libcrypto.dylib"
 #else
-    "libcrypto.so.3", // 3.x library name
-    "libcrypto.so.1.1",
-    "libcrypto.so.1.0.0",
-    "libcrypto.so.10",
-    "libcrypto.so",
-#endif
+        "libcrypto.so.3",     // 3.x library name
+        "libcrypto.so.1.1",   // 1.1.x library name
+        "libcrypto.so.1.0.0", // 1.0.x library name
+        "libcrypto.so.10",    // 1.0.x library name on RHEL
+        "libcrypto.so"        // general symlink library name
+#endif        
     };
 
     // Check to see if we can load the libraries in the order set out above
     for (i = 0; (NULL == result) && (i < sizeof(libNames) / sizeof(libNames[0])); i++) {
         const char * libName = libNames[i];
-        flags = RTLD_NOW;
 
-#if defined(AIX)
-        if (NULL != strrchr(libName, '('))
-            flags |= RTLD_MEMBER;
-# endif
-
-        result = dlopen (libName,  flags);
+        // Check to see if we can load the library
+        result = dlopen (libName,  RTLD_NOW);
     }
 
-#if defined(__linux__)
     if (traceEnabled && (NULL != result)) {
         struct link_map *map = NULL;
         dlinfo(result, RTLD_DI_LINKMAP, &map);
         fprintf(stderr, "Attempt to load OpenSSL %s\n", map->l_name);
         fflush(stderr);
     }
-#endif /* defined(__linux__) */
-
     return result;
 }
 
@@ -95,3 +83,10 @@ void * find_crypto_symbol(void *handle, const char *symname) {
     return  dlsym(handle, symname);
 }
 
+/* Find the path that the library was loaded from */
+void get_library_path(void * handle, char * library_path) {
+    if (0 != dlinfo(handle, RTLD_DI_ORIGIN, library_path)) {
+        strcpy(library_path, "Unknown path");
+    }
+    
+}

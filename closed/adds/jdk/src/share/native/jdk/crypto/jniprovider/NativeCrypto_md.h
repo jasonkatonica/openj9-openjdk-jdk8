@@ -30,5 +30,6 @@
 void * load_crypto_library(jboolean traceEnabled);
 void   unload_crypto_library(void *handle);
 void * find_crypto_symbol(void *handle, const char *symname);
+void   get_library_path(void * handle, char * library_path);
 
 #endif /* NATIVECRYPTO_MD_H */
